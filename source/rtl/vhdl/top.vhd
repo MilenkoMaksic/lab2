@@ -168,8 +168,8 @@ begin
   graphics_lenght <= conv_std_logic_vector(MEM_SIZE*8*8, GRAPH_MEM_ADDR_WIDTH);
   
   -- removed to inputs pin
-  direct_mode <= '1';
-  display_mode     <= "10";  -- 01 - text mode, 10 - graphics mode, 11 - text & graphics
+  direct_mode <= '0';
+  display_mode     <= "01";  -- 01 - text mode, 10 - graphics mode, 11 - text & graphics
   
   font_size        <= x"1";
   show_frame       <= '1';
@@ -251,11 +251,45 @@ begin
   --dir_green
   --dir_blue
  
+ --ff0000, crveno
+ --00ff00, zeleno
+ --0000ff, plava
+ 
+ dir_red <= x"00" when dir_pixel_column < 80 else
+				x"ff" when dir_pixel_column < 160 else
+				x"00" when dir_pixel_column < 240 else
+				x"00" when dir_pixel_column < 320 else
+				x"ff" when dir_pixel_column < 400 else
+				x"ff" when dir_pixel_column < 480 else
+				x"00" when dir_pixel_column < 560 else
+				x"00";
+ 
+ dir_green <= x"00" when dir_pixel_column < 80 else
+				  x"ff" when dir_pixel_column < 160 else
+				  x"ff" when dir_pixel_column < 240 else
+				  x"ff" when dir_pixel_column < 320 else
+				  x"00" when dir_pixel_column < 400 else
+				  x"00" when dir_pixel_column < 480 else
+				  x"00" when dir_pixel_column < 560 else
+				  x"00";
+ 
+ dir_blue <= x"00" when dir_pixel_column < 80 else
+				 x"00" when dir_pixel_column < 160 else
+				 x"ff" when dir_pixel_column < 240 else
+				 x"00" when dir_pixel_column < 320 else
+				 x"ff" when dir_pixel_column < 400 else
+				 x"00" when dir_pixel_column < 480 else
+				 x"ff" when dir_pixel_column < 560 else
+				 x"00";
   -- koristeci signale realizovati logiku koja pise po TXT_MEM
   --char_address
   --char_value
   --char_we
   
+  char_we <= '1';
+  char_value <= "000001" when char_address = "00000000000010" else 
+					 "000010";
+					 
   -- koristeci signale realizovati logiku koja pise po GRAPH_MEM
   --pixel_address
   --pixel_value
