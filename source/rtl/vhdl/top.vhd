@@ -141,6 +141,7 @@ architecture rtl of top is
 
   signal char_we             : std_logic;
   signal char_address        : std_logic_vector(MEM_ADDR_WIDTH-1 downto 0);
+  signal counter             : std_logic_vector(MEM_ADDR_WIDTH-1 downto 0);
   signal char_value          : std_logic_vector(5 downto 0);
 
   signal pixel_address       : std_logic_vector(GRAPH_MEM_ADDR_WIDTH-1 downto 0);
@@ -169,7 +170,7 @@ begin
   
   -- removed to inputs pin
   direct_mode <= '0';
-  display_mode     <= "01";  -- 01 - text mode, 10 - graphics mode, 11 - text & graphics
+  display_mode     <= "11";  -- 01 - text mode, 10 - graphics mode, 11 - text & graphics
   
   font_size        <= x"1";
   show_frame       <= '1';
@@ -287,13 +288,45 @@ begin
   --char_we
   
   char_we <= '1';
-  char_value <= "000001" when char_address = "00000000000010" else 
-					 "000010";
+  process(pix_clock_s) begin 
+		if rising_edge(pix_clock_s) then 
+			if(char_address = 4800) then
+				char_address <= (others => '0');
+			else
+				char_address <= char_address +1;
+			end if;
+		end if;
+  end process;
+ 
+  char_value <= "000100" when char_address = 651 else --D
+					 "001111" when char_address = 652 else --O
+					 "000010" when char_address = 653 else --B
+					 "000001" when char_address = 654 else --A
+					 "010010" when char_address = 655 else --R
+					 "100000" when char_address = 656 else
+					 "000100" when char_address = 657 else --D
+					 "000001" when char_address = 658 else --A
+					 "001110" when char_address = 659 else --N
+					 "100000";
+					 
 					 
   -- koristeci signale realizovati logiku koja pise po GRAPH_MEM
   --pixel_address
   --pixel_value
   --pixel_we
   
+  pixel_we <= '1';
   
+  process(pix_clock_s) begin
+	if(rising_edge(pix_clock_s)) then 
+			if(pixel_address = 9600) then 
+				pixel_address <= (others => '0');
+			else 
+				pixel_address <= pixel_address + 1;
+			end if;
+		end if;
+  end process;
+  
+  --pixel_value <= x"ffffffff" when (pixel_address > 4500 and pixel_address < 4505 and pixel_address > 6200 and pixel_address < 6205) else
+	--				  x"00000000";
 end rtl;
