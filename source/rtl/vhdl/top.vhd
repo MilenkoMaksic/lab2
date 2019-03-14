@@ -24,6 +24,8 @@ entity top is
     clk_i          : in  std_logic;
     reset_n_i      : in  std_logic;
     -- vga
+	 direct_mode_i  : in  std_logic;
+	 display_mode_i      : in  std_logic_vector(1 downto 0);
     vga_hsync_o    : out std_logic;
     vga_vsync_o    : out std_logic;
     blank_o        : out std_logic;
@@ -141,7 +143,6 @@ architecture rtl of top is
 
   signal char_we             : std_logic;
   signal char_address        : std_logic_vector(MEM_ADDR_WIDTH-1 downto 0);
-  signal counter             : std_logic_vector(MEM_ADDR_WIDTH-1 downto 0);
   signal char_value          : std_logic_vector(5 downto 0);
 
   signal pixel_address       : std_logic_vector(GRAPH_MEM_ADDR_WIDTH-1 downto 0);
@@ -157,6 +158,11 @@ architecture rtl of top is
   signal dir_blue            : std_logic_vector(7 downto 0);
   signal dir_pixel_column    : std_logic_vector(10 downto 0);
   signal dir_pixel_row       : std_logic_vector(10 downto 0);
+  signal counter             : std_logic_vector(24 downto 0);
+  signal one_sec             : std_logic;
+  signal offset              : std_logic_vector(12 downto 0);
+  signal offset1              : std_logic_vector(12 downto 0);
+
 
 begin
 
@@ -169,8 +175,8 @@ begin
   graphics_lenght <= conv_std_logic_vector(MEM_SIZE*8*8, GRAPH_MEM_ADDR_WIDTH);
   
   -- removed to inputs pin
-  direct_mode <= '0';
-  display_mode     <= "11";  -- 01 - text mode, 10 - graphics mode, 11 - text & graphics
+  --direct_mode <= '0';
+  --display_mode     <= "10";  -- 01 - text mode, 10 - graphics mode, 11 - text & graphics
   
   font_size        <= x"1";
   show_frame       <= '1';
@@ -212,14 +218,14 @@ begin
     clk_i              => clk_i,
     reset_n_i          => reset_n_i,
     --
-    direct_mode_i      => direct_mode,
+    direct_mode_i      => direct_mode_i,
     dir_red_i          => dir_red,
     dir_green_i        => dir_green,
     dir_blue_i         => dir_blue,
     dir_pixel_column_o => dir_pixel_column,
     dir_pixel_row_o    => dir_pixel_row,
     -- cfg
-    display_mode_i     => display_mode,  -- 01 - text mode, 10 - graphics mode, 11 - text & graphics
+    display_mode_i     => display_mode_i,  -- 01 - text mode, 10 - graphics mode, 11 - text & graphics
     -- text mode interface
     text_addr_i        => char_address,
     text_data_i        => char_value,
@@ -256,7 +262,7 @@ begin
  --00ff00, zeleno
  --0000ff, plava
  
- dir_red <= x"00" when dir_pixel_column < 80 else
+ dir_red <= x"ff" when dir_pixel_column < 80 else
 				x"ff" when dir_pixel_column < 160 else
 				x"00" when dir_pixel_column < 240 else
 				x"00" when dir_pixel_column < 320 else
@@ -265,7 +271,7 @@ begin
 				x"00" when dir_pixel_column < 560 else
 				x"00";
  
- dir_green <= x"00" when dir_pixel_column < 80 else
+ dir_green <= x"ff" when dir_pixel_column < 80 else
 				  x"ff" when dir_pixel_column < 160 else
 				  x"ff" when dir_pixel_column < 240 else
 				  x"ff" when dir_pixel_column < 320 else
@@ -274,7 +280,7 @@ begin
 				  x"00" when dir_pixel_column < 560 else
 				  x"00";
  
- dir_blue <= x"00" when dir_pixel_column < 80 else
+ dir_blue <= x"ff" when dir_pixel_column < 80 else
 				 x"00" when dir_pixel_column < 160 else
 				 x"ff" when dir_pixel_column < 240 else
 				 x"00" when dir_pixel_column < 320 else
@@ -297,16 +303,38 @@ begin
 			end if;
 		end if;
   end process;
- 
-  char_value <= "000100" when char_address = 651 else --D
-					 "001111" when char_address = 652 else --O
-					 "000010" when char_address = 653 else --B
-					 "000001" when char_address = 654 else --A
-					 "010010" when char_address = 655 else --R
-					 "100000" when char_address = 656 else
-					 "000100" when char_address = 657 else --D
-					 "000001" when char_address = 658 else --A
-					 "001110" when char_address = 659 else --N
+  process(pix_clock_s) begin
+		if rising_edge(pix_clock_s) then
+			if(counter = 23999999)then
+				counter <= (others => '0');
+			else
+				counter <= counter + 1;
+			end if;
+		end if;
+  end process;
+
+  one_sec <= '1' when counter = 23999999 else
+				 '0';
+  process(pix_clock_s) begin
+		if rising_edge(pix_clock_s) then
+			if(offset = 4800)then
+				offset <= (others => '0');
+			else
+				if(one_sec = '1') then
+					offset <= offset + 1;
+				end if;
+			end if;
+		end if;
+  end process;
+  char_value <= "000100" when char_address = 0 + offset else --D
+					 "001111" when char_address = 1 + offset else --O
+					 "000010" when char_address = 2 + offset else --B
+					 "000001" when char_address = 3 + offset else --A
+					 "010010" when char_address = 4 + offset else --R
+					 "100000" when char_address = 5 + offset else
+					 "000100" when char_address = 6 + offset else --D
+					 "000001" when char_address = 7 + offset else --A
+					 "001110" when char_address = 8 + offset else --N
 					 "100000";
 					 
 					 
@@ -326,7 +354,45 @@ begin
 			end if;
 		end if;
   end process;
-  
-  --pixel_value <= x"ffffffff" when (pixel_address > 4500 and pixel_address < 4505 and pixel_address > 6200 and pixel_address < 6205) else
-	--				  x"00000000";
+  process(pix_clock_s) begin
+		if rising_edge(pix_clock_s) then
+			if(offset1 = 9600)then
+				offset1 <= (others => '0');
+			else
+				if(one_sec = '1') then
+					if(offset1 = 20) then
+						offset1 <= (others => '0');
+					else
+						offset1 <= offset1 + 1;
+					end if;
+				end if;
+			end if;
+		end if;
+  end process;
+  pixel_value <= x"ffffffff" when pixel_address = 101 + offset1 else
+					  x"ffffffff" when pixel_address = 121 + offset1 else
+					  x"ffffffff" when pixel_address = 141 + offset1 else
+					  x"ffffffff" when pixel_address = 161 + offset1 else
+					  x"ffffffff" when pixel_address = 181 + offset1 else
+					  x"ffffffff" when pixel_address = 201 + offset1 else
+					  x"ffffffff" when pixel_address = 221 + offset1 else
+					  x"ffffffff" when pixel_address = 241 + offset1 else
+					  x"ffffffff" when pixel_address = 261 + offset1 else
+					  x"ffffffff" when pixel_address = 281 + offset1 else
+					  x"ffffffff" when pixel_address = 301 + offset1 else
+					  x"ffffffff" when pixel_address = 321 + offset1 else
+					  x"ffffffff" when pixel_address = 341 + offset1 else
+					  x"ffffffff" when pixel_address = 361 + offset1 else
+					  x"ffffffff" when pixel_address = 381 + offset1 else
+					  x"ffffffff" when pixel_address = 401 + offset1 else
+					  x"ffffffff" when pixel_address = 421 + offset1 else
+					  x"ffffffff" when pixel_address = 441 + offset1 else
+					  x"ffffffff" when pixel_address = 461 + offset1 else
+					  x"ffffffff" when pixel_address = 481 + offset1 else
+					  x"ffffffff" when pixel_address = 501 + offset1 else
+					  x"ffffffff" when pixel_address = 521 + offset1 else
+					  x"ffffffff" when pixel_address = 541 + offset1 else
+					  x"ffffffff" when pixel_address = 561 + offset1 else
+					  x"ffffffff" when pixel_address = 581 + offset1 else
+					  x"00000000";
 end rtl;
